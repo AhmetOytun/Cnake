@@ -92,6 +92,7 @@ void process_input(){
             break;
     }
 }
+
 void spawn_apple(){
     apple.x = rand() % WINDOW_WIDTH; /* sets the apple's x position to a random position */
     apple.y = rand() % WINDOW_HEIGHT; /* sets the apple's y position to a random position */
