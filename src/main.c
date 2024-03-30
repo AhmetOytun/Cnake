@@ -1,12 +1,16 @@
 /* Author: Ahmet Oytun Kurtuldu, made this for fun */
 #include <stdio.h>
 #include <SDL2/SDL.h>
+#include <SDL2/SDL_ttf.h> /* used for text rendering */
 #include "constants.h" /* used for constants */
 
 SDL_Window* window = NULL; /* used to create the window */
 SDL_Renderer* renderer = NULL; /* used to render the game */
 int game_is_running = FALSE; /* used to check if the game is running */
 int last_frame_time = 0; /* used to calculate the delta time */
+TTF_Font* font = NULL; // Font pointer
+SDL_Color textColor = {255, 255, 255, 255}; // Text color
+int score = 0; /* score */
 
 struct snake { /* snake struct */
     float x;
@@ -24,6 +28,15 @@ struct apple { /* apple struct */
 } apple;
 
 int initialize_window(void) {
+    if (TTF_Init() == -1) {
+        fprintf(stderr, "Error initializing SDL_ttf: %s\n", TTF_GetError());
+        return FALSE;
+    }
+    font = TTF_OpenFont("fonts/comic.ttf", 24);
+    if (!font) {
+        fprintf(stderr, "Error loading font: %s\n", TTF_GetError());
+        return FALSE;
+    }
     if(SDL_Init(SDL_INIT_EVERYTHING) != 0){
         fprintf(stderr, "Error initializing SDL.\n");
         return FALSE;
@@ -81,6 +94,41 @@ void spawn_apple(){
     apple.y = rand() % WINDOW_HEIGHT; /* sets the apple's y position to a random position */
 }
 
+void render_score() {
+    // Convert score to string
+    char score_text[50];
+    snprintf(score_text, sizeof(score_text), "Score: %d", score);
+
+    // Render text
+    SDL_Surface* textSurface = TTF_RenderText_Solid(font, score_text, textColor);
+    if (!textSurface) {
+        fprintf(stderr, "Error rendering text: %s\n", TTF_GetError());
+        return;
+    }
+
+    // Create texture from surface
+    SDL_Texture* textTexture = SDL_CreateTextureFromSurface(renderer, textSurface);
+    if (!textTexture) {
+        fprintf(stderr, "Error creating texture from surface: %s\n", SDL_GetError());
+        SDL_FreeSurface(textSurface);
+        return;
+    }
+
+    // Get text dimensions
+    int textWidth = textSurface->w;
+    int textHeight = textSurface->h;
+
+    // Clean up surface
+    SDL_FreeSurface(textSurface);
+
+    // Render text
+    SDL_Rect dstRect = {10, 10, textWidth, textHeight}; // Adjust position as needed
+    SDL_RenderCopy(renderer, textTexture, NULL, &dstRect);
+
+    // Clean up texture
+    SDL_DestroyTexture(textTexture);
+}
+
 void setup(){
     snake.x = 0; /* sets the snake's x position to the top left of the screen */
     snake.y = 0; /* sets the snake's y position to the top left of the screen */
@@ -128,6 +176,7 @@ void update(){
 
     if(check_for_apple_collision()){ /* checks for apple collision */
         spawn_apple(); /* spawns a new apple */
+        score++; /* increments the score */
     }
 
 }
@@ -135,6 +184,7 @@ void update(){
 void render(){
     SDL_SetRenderDrawColor(renderer, 128, 128, 128, 255); /* grey */
     SDL_RenderClear(renderer); /* clears the screen */
+    render_score(); // Render score
 
     SDL_Rect snake_rect = { /* used for drawing the snake */
         (int)snake.x,
@@ -162,6 +212,10 @@ void render(){
 void destroy_window(){ /* destroys the window and renderer */
     SDL_DestroyRenderer(renderer);
     SDL_DestroyWindow(window);
+    if (font) {
+        TTF_CloseFont(font);
+    }
+    TTF_Quit();
     SDL_Quit();
 }
 
