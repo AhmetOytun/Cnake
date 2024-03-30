@@ -7,13 +7,13 @@ SDL_Renderer* renderer = NULL;
 int game_is_running = FALSE;
 int last_frame_time = 0;
 
-struct ball {
+struct snake {
     float x;
     float y;
     float width;
     float height;
     int direction;
-} ball;
+} snake;
 
 int initialize_window(void) {
     if(SDL_Init(SDL_INIT_EVERYTHING) != 0){
@@ -52,29 +52,29 @@ void process_input(){
         case SDL_KEYDOWN:
             if(event.key.keysym.sym == SDLK_ESCAPE){
                 game_is_running = FALSE;
-            }if(event.key.keysym.sym == SDLK_UP && ball.direction != DOWN && ball.direction != UP){
-                ball.y -= 10;
-                ball.direction = UP;
-            }if(event.key.keysym.sym == SDLK_DOWN && ball.direction != UP && ball.direction != DOWN){
-                ball.y += 10;
-                ball.direction = DOWN;
-            }if(event.key.keysym.sym == SDLK_LEFT && ball.direction != RIGHT && ball.direction != LEFT){
-                ball.x -= 10;
-                ball.direction = LEFT;
-            }if(event.key.keysym.sym == SDLK_RIGHT && ball.direction != LEFT && ball.direction != RIGHT){
-                ball.x += 10;
-                ball.direction = RIGHT;
+            }if(event.key.keysym.sym == SDLK_UP && snake.direction != DOWN && snake.direction != UP){
+                snake.y -= 10;
+                snake.direction = UP;
+            }if(event.key.keysym.sym == SDLK_DOWN && snake.direction != UP && snake.direction != DOWN){
+                snake.y += 10;
+                snake.direction = DOWN;
+            }if(event.key.keysym.sym == SDLK_LEFT && snake.direction != RIGHT && snake.direction != LEFT){
+                snake.x -= 10;
+                snake.direction = LEFT;
+            }if(event.key.keysym.sym == SDLK_RIGHT && snake.direction != LEFT && snake.direction != RIGHT){
+                snake.x += 10;
+                snake.direction = RIGHT;
             }
             break;
     }
 }
 
 void setup(){
-    ball.x = 0;
-    ball.y = 0;
-    ball.width = 15;
-    ball.height = 15;
-    ball.direction = RIGHT;
+    snake.x = 0;
+    snake.y = 0;
+    snake.width = 15;
+    snake.height = 15;
+    snake.direction = RIGHT;
 }
 
 void update(){
@@ -88,18 +88,18 @@ void update(){
 
     last_frame_time = SDL_GetTicks();
 
-    switch(ball.direction){
+    switch(snake.direction){
         case RIGHT:
-            ball.x += BALL_SPEED * delta_time;
+            snake.x += SNAKE_SPEED * delta_time;
             break;
         case LEFT:
-            ball.x -= BALL_SPEED * delta_time;
+            snake.x -= SNAKE_SPEED * delta_time;
             break;
         case UP:
-            ball.y -= BALL_SPEED * delta_time;
+            snake.y -= SNAKE_SPEED * delta_time;
             break;
         case DOWN:
-            ball.y += BALL_SPEED * delta_time;
+            snake.y += SNAKE_SPEED * delta_time;
             break;
     }
 
@@ -109,15 +109,15 @@ void render(){
     SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
     SDL_RenderClear(renderer);
 
-    SDL_Rect ball_rect = {
-        (int)ball.x,
-        (int)ball.y,
-        (int)ball.width,
-        (int)ball.height
+    SDL_Rect snake_rect = {
+        (int)snake.x,
+        (int)snake.y,
+        (int)snake.width,
+        (int)snake.height
     };
 
     SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255);
-    SDL_RenderFillRect(renderer, &ball_rect);
+    SDL_RenderFillRect(renderer, &snake_rect);
 
     SDL_RenderPresent(renderer);
 }

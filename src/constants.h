@@ -12,4 +12,4 @@
 #define UP 2
 #define DOWN 3
 
-#define BALL_SPEED 300
+#define SNAKE_SPEED 300
