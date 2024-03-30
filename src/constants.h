@@ -13,3 +13,5 @@
 #define DOWN 3
 
 #define SNAKE_SPEED 300
+
+#define MAX_SNAKE_SIZE 300

@@ -6,15 +6,22 @@
 
 SDL_Window* window = NULL; /* used to create the window */
 SDL_Renderer* renderer = NULL; /* used to render the game */
-int game_is_running = FALSE; /* used to check if the game is running */
-int last_frame_time = 0; /* used to calculate the delta time */
 TTF_Font* font = NULL; // Font pointer
 SDL_Color textColor = {255, 255, 255, 255}; // Text color
+int game_is_running = FALSE; /* used to check if the game is running */
+int last_frame_time = 0; /* used to calculate the delta time */
 int score = 0; /* score */
 
-struct snake { /* snake struct */
+struct segment { /* segment struct */
     float x;
     float y;
+    float width;
+    float height;
+} segment;
+
+struct snake { /* snake struct */
+    struct segment segments[MAX_SNAKE_SIZE];
+    int num_segments;
     float width;
     float height;
     int direction;
@@ -74,16 +81,12 @@ void process_input(){
             if(event.key.keysym.sym == SDLK_ESCAPE){ /* if the user presses the escape key */
                 game_is_running = FALSE;
             }if(event.key.keysym.sym == SDLK_UP && snake.direction != DOWN && snake.direction != UP){ /* if the user presses the up key and its not already moving up or down*/
-                snake.y -= 10;
                 snake.direction = UP;
             }if(event.key.keysym.sym == SDLK_DOWN && snake.direction != UP && snake.direction != DOWN){ /* if the user presses the down key and its not already moving up or down */
-                snake.y += 10;
                 snake.direction = DOWN;
             }if(event.key.keysym.sym == SDLK_LEFT && snake.direction != RIGHT && snake.direction != LEFT){ /* if the user presses the left key and its not already moving left or right */
-                snake.x -= 10;
                 snake.direction = LEFT;
             }if(event.key.keysym.sym == SDLK_RIGHT && snake.direction != LEFT && snake.direction != RIGHT){ /* if the user presses the right key and its not already moving left or right */
-                snake.x += 10;
                 snake.direction = RIGHT;
             }
             break;
@@ -95,18 +98,15 @@ void spawn_apple(){
 }
 
 void render_score() {
-    // Convert score to string
     char score_text[50];
     snprintf(score_text, sizeof(score_text), "Score: %d", score);
 
-    // Render text
     SDL_Surface* textSurface = TTF_RenderText_Solid(font, score_text, textColor);
     if (!textSurface) {
         fprintf(stderr, "Error rendering text: %s\n", TTF_GetError());
         return;
     }
 
-    // Create texture from surface
     SDL_Texture* textTexture = SDL_CreateTextureFromSurface(renderer, textSurface);
     if (!textTexture) {
         fprintf(stderr, "Error creating texture from surface: %s\n", SDL_GetError());
@@ -114,24 +114,22 @@ void render_score() {
         return;
     }
 
-    // Get text dimensions
     int textWidth = textSurface->w;
     int textHeight = textSurface->h;
 
-    // Clean up surface
     SDL_FreeSurface(textSurface);
 
-    // Render text
-    SDL_Rect dstRect = {10, 10, textWidth, textHeight}; // Adjust position as needed
+    SDL_Rect dstRect = {10, 10, textWidth, textHeight};
     SDL_RenderCopy(renderer, textTexture, NULL, &dstRect);
 
-    // Clean up texture
     SDL_DestroyTexture(textTexture);
 }
 
 void setup(){
-    snake.x = 0; /* sets the snake's x position to the top left of the screen */
-    snake.y = 0; /* sets the snake's y position to the top left of the screen */
+    snake.num_segments = 1;
+    snake.segments[0].x = 0; /* sets the snake's x position to the top left of the screen */
+    snake.segments[0].y = 0; /* sets the snake's y position to the top left of the screen */
+
     snake.width = 15;
     snake.height = 15;
     snake.direction = RIGHT; /* sets the snake's direction to right by default */
@@ -141,9 +139,21 @@ void setup(){
     spawn_apple(); /* spawns the apple */
 }
 
-int check_for_apple_collision(){
-    if(snake.x < apple.x + apple.width && snake.x + snake.width > apple.x && snake.y < apple.y + apple.height && snake.y + snake.height > apple.y){ /* checks if the snake collides with the apple */
-        return TRUE;
+void add_segment(){
+    if (snake.num_segments < MAX_SNAKE_SIZE) { /* if the snake is not at max size */                    
+            snake.segments[snake.num_segments] = snake.segments[snake.num_segments - 1]; /* adds a new segment */
+            snake.num_segments++; /* increments the number of segments */
+        }
+}
+
+int check_for_apple_collision(){ /* checks for apple collision */
+    for (int i = 0; i < snake.num_segments; i++) {
+        if(snake.segments[i].x < apple.x + apple.width && snake.segments[i].x + snake.width > apple.x && snake.segments[i].y < apple.y + apple.height && snake.segments[i].y + snake.height > apple.y){ /* checks if the snake collides with the apple */
+            score++; /* increments the score */
+            add_segment(); /* adds a new segment */
+            spawn_apple(); /* spawns a new apple */
+            return TRUE;
+        }
     }
     return FALSE;
 }
@@ -159,39 +169,46 @@ void update(){
 
     last_frame_time = SDL_GetTicks(); /* sets the last frame time */
 
+
+    for (int i = snake.num_segments - 1; i > 0; i--) { /* updates the snake's segments */
+        snake.segments[i].x = snake.segments[i - 1].x;
+        snake.segments[i].y = snake.segments[i - 1].y;
+    }
+
+    /* update head position */
     switch(snake.direction){ /* moves the snake */
         case RIGHT:
-            snake.x += SNAKE_SPEED * delta_time;
+            snake.segments[0].x += SNAKE_SPEED * delta_time;
             break;
         case LEFT:
-            snake.x -= SNAKE_SPEED * delta_time;
+            snake.segments[0].x -= SNAKE_SPEED * delta_time;
             break;
         case UP:
-            snake.y -= SNAKE_SPEED * delta_time;
+            snake.segments[0].y -= SNAKE_SPEED * delta_time;
             break;
         case DOWN:
-            snake.y += SNAKE_SPEED * delta_time;
+            snake.segments[0].y += SNAKE_SPEED * delta_time;
             break;
     }
 
-    if(check_for_apple_collision()){ /* checks for apple collision */
-        spawn_apple(); /* spawns a new apple */
-        score++; /* increments the score */
-    }
-
+    check_for_apple_collision(); /* checks for apple collision */
 }
 
 void render(){
     SDL_SetRenderDrawColor(renderer, 128, 128, 128, 255); /* grey */
     SDL_RenderClear(renderer); /* clears the screen */
-    render_score(); // Render score
 
-    SDL_Rect snake_rect = { /* used for drawing the snake */
-        (int)snake.x,
-        (int)snake.y,
-        (int)snake.width,
-        (int)snake.height
-    };
+    for (int i = 0; i < snake.num_segments; i++) {
+        SDL_Rect snake_rect = { /* used for drawing the snake */
+            (int)snake.segments[i].x,
+            (int)snake.segments[i].y,
+            (int)snake.width,
+            (int)snake.height
+        };
+
+        SDL_SetRenderDrawColor(renderer, 0, 255, 0, 255); /* green */
+        SDL_RenderFillRect(renderer, &snake_rect); /* makes the snake green */
+    }
 
     SDL_Rect apple_rect = { /* used for drawing the apple */
         (int)apple.x,
@@ -200,11 +217,10 @@ void render(){
         (int)apple.height
     };
 
-    SDL_SetRenderDrawColor(renderer, 0, 255, 0, 255); /* green */
-    SDL_RenderFillRect(renderer, &snake_rect); /* makes the snake green */
-
     SDL_SetRenderDrawColor(renderer, 255, 0, 0, 255); /* red */
     SDL_RenderFillRect(renderer, &apple_rect); /* makes the apple red */
+
+    render_score(); 
 
     SDL_RenderPresent(renderer); /* renders the screen */
 }
