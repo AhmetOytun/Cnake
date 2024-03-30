@@ -1,19 +1,27 @@
+/* Author: Ahmet Oytun Kurtuldu, made this for fun */
 #include <stdio.h>
 #include <SDL2/SDL.h>
-#include "constants.h"
+#include "constants.h" /* used for constants */
 
-SDL_Window* window = NULL;
-SDL_Renderer* renderer = NULL;
-int game_is_running = FALSE;
-int last_frame_time = 0;
+SDL_Window* window = NULL; /* used to create the window */
+SDL_Renderer* renderer = NULL; /* used to render the game */
+int game_is_running = FALSE; /* used to check if the game is running */
+int last_frame_time = 0; /* used to calculate the delta time */
 
-struct snake {
+struct snake { /* snake struct */
     float x;
     float y;
     float width;
     float height;
     int direction;
 } snake;
+
+struct apple { /* apple struct */
+    float x;
+    float y;
+    float width;
+    float height;
+} apple;
 
 int initialize_window(void) {
     if(SDL_Init(SDL_INIT_EVERYTHING) != 0){
@@ -42,53 +50,68 @@ int initialize_window(void) {
 }
 
 void process_input(){
-    SDL_Event event;
-    SDL_PollEvent(&event);
+    SDL_Event event; /* used for processing input */
+    SDL_PollEvent(&event); /* polls for events */
 
     switch(event.type){
-        case SDL_QUIT:
+        case SDL_QUIT: /* if the user closes the window */
             game_is_running = FALSE;
             break;
-        case SDL_KEYDOWN:
-            if(event.key.keysym.sym == SDLK_ESCAPE){
+        case SDL_KEYDOWN: /* if the user presses a key */
+            if(event.key.keysym.sym == SDLK_ESCAPE){ /* if the user presses the escape key */
                 game_is_running = FALSE;
-            }if(event.key.keysym.sym == SDLK_UP && snake.direction != DOWN && snake.direction != UP){
+            }if(event.key.keysym.sym == SDLK_UP && snake.direction != DOWN && snake.direction != UP){ /* if the user presses the up key and its not already moving up or down*/
                 snake.y -= 10;
                 snake.direction = UP;
-            }if(event.key.keysym.sym == SDLK_DOWN && snake.direction != UP && snake.direction != DOWN){
+            }if(event.key.keysym.sym == SDLK_DOWN && snake.direction != UP && snake.direction != DOWN){ /* if the user presses the down key and its not already moving up or down */
                 snake.y += 10;
                 snake.direction = DOWN;
-            }if(event.key.keysym.sym == SDLK_LEFT && snake.direction != RIGHT && snake.direction != LEFT){
+            }if(event.key.keysym.sym == SDLK_LEFT && snake.direction != RIGHT && snake.direction != LEFT){ /* if the user presses the left key and its not already moving left or right */
                 snake.x -= 10;
                 snake.direction = LEFT;
-            }if(event.key.keysym.sym == SDLK_RIGHT && snake.direction != LEFT && snake.direction != RIGHT){
+            }if(event.key.keysym.sym == SDLK_RIGHT && snake.direction != LEFT && snake.direction != RIGHT){ /* if the user presses the right key and its not already moving left or right */
                 snake.x += 10;
                 snake.direction = RIGHT;
             }
             break;
     }
 }
+void spawn_apple(){
+    apple.x = rand() % WINDOW_WIDTH; /* sets the apple's x position to a random position */
+    apple.y = rand() % WINDOW_HEIGHT; /* sets the apple's y position to a random position */
+}
 
 void setup(){
-    snake.x = 0;
-    snake.y = 0;
+    snake.x = 0; /* sets the snake's x position to the top left of the screen */
+    snake.y = 0; /* sets the snake's y position to the top left of the screen */
     snake.width = 15;
     snake.height = 15;
-    snake.direction = RIGHT;
+    snake.direction = RIGHT; /* sets the snake's direction to right by default */
+
+    apple.height = 15;
+    apple.width = 15;
+    spawn_apple(); /* spawns the apple */
+}
+
+int check_for_apple_collision(){
+    if(snake.x < apple.x + apple.width && snake.x + snake.width > apple.x && snake.y < apple.y + apple.height && snake.y + snake.height > apple.y){ /* checks if the snake collides with the apple */
+        return TRUE;
+    }
+    return FALSE;
 }
 
 void update(){
-    int time_to_wait = FRAME_TARGET_TIME - (SDL_GetTicks() - last_frame_time);
+    int time_to_wait = FRAME_TARGET_TIME - (SDL_GetTicks() - last_frame_time); /* calculates the time to wait */
     
-    if(time_to_wait > 0 && time_to_wait <= FRAME_TARGET_TIME){
+    if(time_to_wait > 0 && time_to_wait <= FRAME_TARGET_TIME){ /* waits for the time to wait */
         SDL_Delay(time_to_wait);
     }
     
-    float delta_time = (SDL_GetTicks() - last_frame_time) / 1000.0f;
+    float delta_time = (SDL_GetTicks() - last_frame_time) / 1000.0f; /* calculates the delta time */
 
-    last_frame_time = SDL_GetTicks();
+    last_frame_time = SDL_GetTicks(); /* sets the last frame time */
 
-    switch(snake.direction){
+    switch(snake.direction){ /* moves the snake */
         case RIGHT:
             snake.x += SNAKE_SPEED * delta_time;
             break;
@@ -103,43 +126,57 @@ void update(){
             break;
     }
 
+    if(check_for_apple_collision()){ /* checks for apple collision */
+        spawn_apple(); /* spawns a new apple */
+    }
+
 }
 
 void render(){
-    SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
-    SDL_RenderClear(renderer);
+    SDL_SetRenderDrawColor(renderer, 128, 128, 128, 255); /* grey */
+    SDL_RenderClear(renderer); /* clears the screen */
 
-    SDL_Rect snake_rect = {
+    SDL_Rect snake_rect = { /* used for drawing the snake */
         (int)snake.x,
         (int)snake.y,
         (int)snake.width,
         (int)snake.height
     };
 
-    SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255);
-    SDL_RenderFillRect(renderer, &snake_rect);
+    SDL_Rect apple_rect = { /* used for drawing the apple */
+        (int)apple.x,
+        (int)apple.y,
+        (int)apple.width,
+        (int)apple.height
+    };
 
-    SDL_RenderPresent(renderer);
+    SDL_SetRenderDrawColor(renderer, 0, 255, 0, 255); /* green */
+    SDL_RenderFillRect(renderer, &snake_rect); /* makes the snake green */
+
+    SDL_SetRenderDrawColor(renderer, 255, 0, 0, 255); /* red */
+    SDL_RenderFillRect(renderer, &apple_rect); /* makes the apple red */
+
+    SDL_RenderPresent(renderer); /* renders the screen */
 }
 
-void destroy_window(){
+void destroy_window(){ /* destroys the window and renderer */
     SDL_DestroyRenderer(renderer);
     SDL_DestroyWindow(window);
     SDL_Quit();
 }
 
 int main() {
-    game_is_running = initialize_window();
+    game_is_running = initialize_window(); /* initializes the window */
 
-    setup();
+    setup(); /* sets up the game */
 
-    while(game_is_running){
-        process_input();
-        update();
-        render();
+    while(game_is_running){ /* game loop */
+        process_input(); /* processes input */
+        update(); /* updates the game */
+        render(); /* renders the game */
     }
 
-    destroy_window();
+    destroy_window(); /* destroys the window */
 
     return 0;
 }
