@@ -2,12 +2,15 @@
 #include <stdio.h>
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_ttf.h> /* used for text rendering */
+#include <SDL2/SDL_mixer.h> /* used for audio */
 #include "constants.h" /* used for constants */
+
 
 SDL_Window* window = NULL; /* used to create the window */
 SDL_Renderer* renderer = NULL; /* used to render the game */
 TTF_Font* font = NULL; // Font pointer
 SDL_Color textColor = {255, 255, 255, 255}; // Text color
+Mix_Chunk* apple_sound = NULL; /* used for the apple sound */
 int game_is_running = FALSE; /* used to check if the game is running */
 int last_frame_time = 0; /* used to calculate the delta time */
 int score = 0; /* score */
@@ -127,6 +130,9 @@ void render_score() {
 }
 
 void setup(){
+    Mix_OpenAudio(44100, MIX_DEFAULT_FORMAT, 2, 2048); /* opens the audio */
+    apple_sound = Mix_LoadWAV("sounds/score.wav"); /* loads the apple sound */
+
     snake.num_segments = 1;
     snake.segments[0].x = 0; /* sets the snake's x position to the top left of the screen */
     snake.segments[0].y = 0; /* sets the snake's y position to the top left of the screen */
@@ -151,6 +157,7 @@ int check_for_apple_collision(){ /* checks for apple collision */
     for (int i = 0; i < snake.num_segments; i++) {
         if(snake.segments[i].x < apple.x + apple.width && snake.segments[i].x + snake.width > apple.x && snake.segments[i].y < apple.y + apple.height && snake.segments[i].y + snake.height > apple.y){ /* checks if the snake collides with the apple */
             score++; /* increments the score */
+            Mix_PlayChannel(-1, apple_sound, 0); /* plays the apple sound */
             add_segment(); /* adds a new segment */
             spawn_apple(); /* spawns a new apple */
             return TRUE;
@@ -232,6 +239,10 @@ void destroy_window(){ /* destroys the window and renderer */
     if (font) {
         TTF_CloseFont(font);
     }
+    if (apple_sound) {
+        Mix_FreeChunk(apple_sound);
+    }
+    Mix_CloseAudio();
     TTF_Quit();
     SDL_Quit();
 }
