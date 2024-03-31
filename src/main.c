@@ -11,6 +11,8 @@ SDL_Renderer* renderer = NULL; /* used to render the game */
 TTF_Font* font = NULL; // Font pointer
 SDL_Color textColor = {255, 255, 255, 255}; // Text color
 Mix_Chunk* apple_sound = NULL; /* used for the apple sound */
+Mix_Chunk* game_over_sound = NULL; /* used for the game over sound */
+Mix_Music* bg_music = NULL; /* used for the background music */
 int game_is_running = FALSE; /* used to check if the game is running */
 int last_frame_time = 0; /* used to calculate the delta time */
 int score = 0; /* score */
@@ -96,9 +98,45 @@ void process_input(){
     }
 }
 
+void game_over_screen() {
+    Mix_HaltMusic(); /* stops the background music */
+    Mix_HaltChannel(-1); /* stops all sound effects */
+    Mix_PlayChannel(-1, game_over_sound, 0); /* plays the game over sound */
+    SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255); /* black */
+    SDL_RenderClear(renderer); /* clears the screen */
+
+    char game_over_text[50];
+    snprintf(game_over_text, sizeof(game_over_text), "Game Over! Your score: %d", score);
+
+    SDL_Surface* textSurface = TTF_RenderText_Solid(font, game_over_text, textColor);
+    if (!textSurface) {
+        fprintf(stderr, "Error rendering text: %s\n", TTF_GetError());
+        return;
+    }
+
+    SDL_Texture* textTexture = SDL_CreateTextureFromSurface(renderer, textSurface);
+    if (!textTexture) {
+        fprintf(stderr, "Error creating texture from surface: %s\n", SDL_GetError());
+        SDL_FreeSurface(textSurface);
+        return;
+    }
+
+    int textWidth = textSurface->w;
+    int textHeight = textSurface->h;
+
+    SDL_FreeSurface(textSurface);
+
+    SDL_Rect dstRect = {WINDOW_WIDTH / 2 - textWidth / 2, WINDOW_HEIGHT / 2 - textHeight / 2, textWidth, textHeight};
+    SDL_RenderCopy(renderer, textTexture, NULL, &dstRect);
+
+    SDL_DestroyTexture(textTexture);
+
+    SDL_RenderPresent(renderer); /* renders the screen */
+}
+
 void spawn_apple(){
-    apple.x = rand() % WINDOW_WIDTH; /* sets the apple's x position to a random position */
-    apple.y = rand() % WINDOW_HEIGHT; /* sets the apple's y position to a random position */
+    apple.x = rand() % (WINDOW_WIDTH - (int)apple.width); /* sets the apple's x position to a random position */
+    apple.y = rand() % (WINDOW_HEIGHT - (int)apple.height); /* sets the apple's y position to a random position */
 }
 
 void render_score() {
@@ -132,6 +170,10 @@ void render_score() {
 void setup(){
     Mix_OpenAudio(44100, MIX_DEFAULT_FORMAT, 2, 2048); /* opens the audio */
     apple_sound = Mix_LoadWAV("sounds/score.wav"); /* loads the apple sound */
+    game_over_sound = Mix_LoadWAV("sounds/game_over.wav"); /* loads the game over sound */
+    bg_music = Mix_LoadMUS("sounds/bg_music.flac"); /* loads the background music */
+
+    Mix_PlayMusic(bg_music, -1); /* plays the background music */
 
     snake.num_segments = 1;
     snake.segments[0].x = 0; /* sets the snake's x position to the top left of the screen */
@@ -154,12 +196,26 @@ void add_segment(){
 }
 
 int check_for_apple_collision(){ /* checks for apple collision */
-    for (int i = 0; i < snake.num_segments; i++) {
-        if(snake.segments[i].x < apple.x + apple.width && snake.segments[i].x + snake.width > apple.x && snake.segments[i].y < apple.y + apple.height && snake.segments[i].y + snake.height > apple.y){ /* checks if the snake collides with the apple */
+        if(snake.segments[0].x < apple.x + apple.width && snake.segments[0].x + snake.width > apple.x && snake.segments[0].y < apple.y + apple.height && snake.segments[0].y + snake.height > apple.y){ /* checks if the snake collides with the apple */
             score++; /* increments the score */
             Mix_PlayChannel(-1, apple_sound, 0); /* plays the apple sound */
             add_segment(); /* adds a new segment */
             spawn_apple(); /* spawns a new apple */
+            return TRUE;
+        }
+    return FALSE;
+}
+
+int check_for_wall_collision() { /* checks for wall collision */
+    if(snake.segments[0].x < 0 || snake.segments[0].x >= WINDOW_WIDTH || snake.segments[0].y < 0 || snake.segments[0].y >= WINDOW_HEIGHT) {
+        return TRUE; 
+    }
+    return FALSE;
+}
+
+int check_for_self_collision() {
+    for(int i = 1; i < snake.num_segments; i++) {
+        if(snake.segments[0].x == snake.segments[i].x && snake.segments[0].y == snake.segments[i].y) {
             return TRUE;
         }
     }
@@ -199,6 +255,10 @@ void update(){
             break;
     }
 
+    if(check_for_wall_collision() || check_for_self_collision()){ /* checks for wall collision */
+        game_is_running = FALSE;
+        return;
+    }
     check_for_apple_collision(); /* checks for apple collision */
 }
 
@@ -257,6 +317,9 @@ int main() {
         update(); /* updates the game */
         render(); /* renders the game */
     }
+
+    game_over_screen(); /* shows the game over screen */
+    SDL_Delay(3000); /* waits for 3 seconds */
 
     destroy_window(); /* destroys the window */
 
