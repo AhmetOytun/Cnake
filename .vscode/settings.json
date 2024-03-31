@@ -1,6 +1,7 @@
 {
     "files.associations": {
         "constants.h": "c",
-        "sdl_ttf.h": "c"
+        "sdl_ttf.h": "c",
+        "sdl_mixer.h": "c"
     }
 }

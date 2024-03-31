@@ -5,7 +5,7 @@
 #include <SDL2/SDL_mixer.h> /* used for audio */
 #include "constants.h" /* used for constants */
 
-
+enum MenuState currentMenuState = MAIN_MENU;
 SDL_Window* window = NULL; /* used to create the window */
 SDL_Renderer* renderer = NULL; /* used to render the game */
 TTF_Font* font = NULL; // Font pointer
@@ -54,12 +54,12 @@ int initialize_window(void) {
         return FALSE;
     }
     window = SDL_CreateWindow(
-        NULL,
+        "Snake Game",
         SDL_WINDOWPOS_CENTERED,
         SDL_WINDOWPOS_CENTERED,
         WINDOW_WIDTH,
         WINDOW_HEIGHT,
-        SDL_WINDOW_BORDERLESS
+        SDL_WINDOW_FOREIGN
     );
     if(!window){
         fprintf(stderr, "Error creating SDL window.\n");
@@ -98,24 +98,87 @@ void process_input(){
     }
 }
 
+void show_main_menu(){
+    SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255); /* black */
+    SDL_RenderClear(renderer); /* clears the screen */
+
+    char title_text[50];
+    char start_text[50];
+    char exit_text[50];
+    
+    snprintf(title_text, sizeof(title_text), "Snake Game");
+    snprintf(start_text, sizeof(start_text), "Press Enter to Start");
+    snprintf(exit_text, sizeof(exit_text), "Press Escape to Exit");
+
+    SDL_Surface* titleSurface = TTF_RenderText_Solid(font, title_text, textColor);
+    SDL_Surface* startSurface = TTF_RenderText_Solid(font, start_text, textColor); 
+    SDL_Surface* exitSurface = TTF_RenderText_Solid(font, exit_text, textColor);
+
+    if (!titleSurface || !startSurface || !exitSurface) {
+        fprintf(stderr, "Error rendering text: %s\n", TTF_GetError());
+        return;
+    }
+
+    SDL_Texture* titleTexture = SDL_CreateTextureFromSurface(renderer, titleSurface);
+    SDL_Texture* startTexture = SDL_CreateTextureFromSurface(renderer, startSurface);
+    SDL_Texture* exitTexture = SDL_CreateTextureFromSurface(renderer, exitSurface);
+
+    if (!titleTexture || !startTexture || !exitTexture) {
+        fprintf(stderr, "Error creating texture from surface: %s\n", SDL_GetError());
+        SDL_FreeSurface(titleSurface);
+        return;
+    }
+
+    int titleWidth = titleSurface->w;
+    int titleHeight = titleSurface->h;
+
+    int startWidth = startSurface->w;
+    int startHeight = startSurface->h;
+
+    int exitWidth = exitSurface->w;
+    int exitHeight = exitSurface->h;
+
+    SDL_FreeSurface(titleSurface);
+    SDL_FreeSurface(startSurface);
+    SDL_FreeSurface(exitSurface);
+
+    SDL_Rect titleRect = {WINDOW_WIDTH / 2 - titleWidth / 2, WINDOW_HEIGHT / 2 - titleHeight / 2 - 50, titleWidth, titleHeight};
+    SDL_Rect startRect = {WINDOW_WIDTH / 2 - startWidth / 2, WINDOW_HEIGHT / 2 - startHeight / 2, startWidth, startHeight};
+    SDL_Rect exitRect = {WINDOW_WIDTH / 2 - exitWidth / 2, WINDOW_HEIGHT / 2 - exitHeight / 2 + 50, exitWidth, exitHeight};
+
+    SDL_RenderCopy(renderer, titleTexture, NULL, &titleRect);
+    SDL_RenderCopy(renderer, startTexture, NULL, &startRect);
+    SDL_RenderCopy(renderer, exitTexture, NULL, &exitRect);
+
+    SDL_DestroyTexture(titleTexture);
+    SDL_DestroyTexture(startTexture);
+    SDL_DestroyTexture(exitTexture);
+
+    SDL_RenderPresent(renderer); /* renders the screen */
+
+}
+
 void game_over_screen() {
-    Mix_HaltMusic(); /* stops the background music */
-    Mix_HaltChannel(-1); /* stops all sound effects */
-    Mix_PlayChannel(-1, game_over_sound, 0); /* plays the game over sound */
     SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255); /* black */
     SDL_RenderClear(renderer); /* clears the screen */
 
     char game_over_text[50];
-    snprintf(game_over_text, sizeof(game_over_text), "Game Over! Your score: %d", score);
+    char score_text[50];
+    
+    snprintf(game_over_text, sizeof(game_over_text), "Game Over!");
+    snprintf(score_text, sizeof(score_text), "Score: %d", score);
 
     SDL_Surface* textSurface = TTF_RenderText_Solid(font, game_over_text, textColor);
-    if (!textSurface) {
+    SDL_Surface* scoreSurface = TTF_RenderText_Solid(font, score_text, textColor); 
+    if (!textSurface || !scoreSurface) {
         fprintf(stderr, "Error rendering text: %s\n", TTF_GetError());
         return;
     }
 
     SDL_Texture* textTexture = SDL_CreateTextureFromSurface(renderer, textSurface);
-    if (!textTexture) {
+    SDL_Texture* scoreTexture = SDL_CreateTextureFromSurface(renderer, scoreSurface);
+
+    if (!textTexture || !scoreTexture) {
         fprintf(stderr, "Error creating texture from surface: %s\n", SDL_GetError());
         SDL_FreeSurface(textSurface);
         return;
@@ -124,12 +187,20 @@ void game_over_screen() {
     int textWidth = textSurface->w;
     int textHeight = textSurface->h;
 
+    int scoreWidth = scoreSurface->w;
+    int scoreHeight = scoreSurface->h;
+
     SDL_FreeSurface(textSurface);
+    SDL_FreeSurface(scoreSurface);
 
     SDL_Rect dstRect = {WINDOW_WIDTH / 2 - textWidth / 2, WINDOW_HEIGHT / 2 - textHeight / 2, textWidth, textHeight};
+    SDL_Rect scoreRect = {WINDOW_WIDTH / 2 - scoreWidth / 2, WINDOW_HEIGHT / 2 - scoreHeight / 2 + 50, scoreWidth, scoreHeight};
+
     SDL_RenderCopy(renderer, textTexture, NULL, &dstRect);
+    SDL_RenderCopy(renderer, scoreTexture, NULL, &scoreRect);
 
     SDL_DestroyTexture(textTexture);
+    SDL_DestroyTexture(scoreTexture);
 
     SDL_RenderPresent(renderer); /* renders the screen */
 }
@@ -176,16 +247,32 @@ void setup(){
     Mix_PlayMusic(bg_music, -1); /* plays the background music */
 
     snake.num_segments = 1;
-    snake.segments[0].x = 0; /* sets the snake's x position to the top left of the screen */
-    snake.segments[0].y = 0; /* sets the snake's y position to the top left of the screen */
+    snake.segments[0].x = WINDOW_WIDTH / 2 - snake.width / 2;
+    snake.segments[0].y = WINDOW_HEIGHT / 2 - snake.height / 2;
 
     snake.width = 15;
     snake.height = 15;
-    snake.direction = RIGHT; /* sets the snake's direction to right by default */
+    snake.direction = NONE; /* sets the snake's direction to right by default */
 
     apple.height = 15;
     apple.width = 15;
     spawn_apple(); /* spawns the apple */
+}
+
+void handle_main_menu_input() {
+    SDL_Event event;
+    while (SDL_PollEvent(&event)) {
+        if (event.type == SDL_QUIT) {
+            game_is_running = FALSE;
+        } else if (event.type == SDL_KEYDOWN) {
+            if (event.key.keysym.sym == SDLK_ESCAPE) {
+                game_is_running = FALSE;
+            } else if (event.key.keysym.sym == SDLK_RETURN) {
+                setup(); /* sets up the game */
+                currentMenuState = IN_GAME;
+            }
+        }
+    }
 }
 
 void add_segment(){
@@ -256,7 +343,10 @@ void update(){
     }
 
     if(check_for_wall_collision() || check_for_self_collision()){ /* checks for wall collision */
-        game_is_running = FALSE;
+        Mix_HaltMusic(); /* stops the background music */
+        Mix_HaltChannel(-1); /* stops all sound effects */
+        Mix_PlayChannel(-1, game_over_sound, 0); /* plays the game over sound */
+        currentMenuState = GAME_OVER;
         return;
     }
     check_for_apple_collision(); /* checks for apple collision */
@@ -307,19 +397,43 @@ void destroy_window(){ /* destroys the window and renderer */
     SDL_Quit();
 }
 
+void handle_game_over_input(){
+    SDL_Event event;
+    while (SDL_PollEvent(&event)) {
+        if (event.type == SDL_QUIT) {
+            game_is_running = FALSE;
+        } else if (event.type == SDL_KEYDOWN) {
+            if (event.key.keysym.sym == SDLK_ESCAPE) {
+                game_is_running = FALSE;
+            } else if (event.key.keysym.sym == SDLK_RETURN) {
+                currentMenuState = MAIN_MENU;
+            }
+        }
+    }
+}
+
 int main() {
     game_is_running = initialize_window(); /* initializes the window */
 
-    setup(); /* sets up the game */
-
-    while(game_is_running){ /* game loop */
-        process_input(); /* processes input */
-        update(); /* updates the game */
-        render(); /* renders the game */
+    while(game_is_running){
+        switch(currentMenuState){
+            case MAIN_MENU:
+                show_main_menu(); /* shows the main menu */
+                handle_main_menu_input(); /* handles the main menu input */
+                break;
+            case IN_GAME:
+                process_input(); /* processes input */
+                update(); /* updates the game */
+                render(); /* renders the game */
+                break;
+            case GAME_OVER:
+                game_over_screen(); /* shows the game over screen */
+                SDL_Delay(2000); /* waits for 2 seconds */
+                score = 0; /* resets the score */
+                currentMenuState = MAIN_MENU; /* goes back to the main menu */
+                break;
     }
-
-    game_over_screen(); /* shows the game over screen */
-    SDL_Delay(3000); /* waits for 3 seconds */
+    }
 
     destroy_window(); /* destroys the window */
 

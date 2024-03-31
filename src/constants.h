@@ -11,7 +11,10 @@
 #define LEFT 1
 #define UP 2
 #define DOWN 3
+#define NONE 4
 
 #define SNAKE_SPEED 300
 
 #define MAX_SNAKE_SIZE 300
+
+enum MenuState { MAIN_MENU, IN_GAME, GAME_OVER };
